@@ -19,6 +19,9 @@ interface INonFungibleSeaDrop1155Token is ISeaDrop1155TokenContractMetadata {
      */
     error OnlyAllowedSeaDrop();
 
+    error OnlyEOA();
+
+
     /**
      * @dev Emit an event when allowed SeaDrop contracts are updated.
      */

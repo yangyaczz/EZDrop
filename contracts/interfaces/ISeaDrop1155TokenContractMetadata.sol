@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IERC2981 } from "openzeppelin-contracts/interfaces/IERC2981.sol";
+interface ISeaDrop1155TokenContractMetadata {
 
-interface ISeaDrop1155TokenContractMetadata is IERC2981 {
+
+
 
     /**
      * @dev Revert if the royalty basis points is greater than 10_000.
@@ -16,29 +17,6 @@ interface ISeaDrop1155TokenContractMetadata is IERC2981 {
     error RoyaltyAddressCannotBeZeroAddress();
 
     error OnlyOwner();
-
-    /**
-     * @dev Emit an event when the royalties info is updated.
-     */
-    event RoyaltyInfoUpdated(address receiver, uint256 bps);
-
-    /**
-     * @dev Emit an event when the royalties address is updated.
-     */
-    event RoyaltyAddressUpdated(address receiver);
-
-    /**
-     * @dev Emit an event when the royalties bps is updated.
-     */
-    event RoyaltyBpsUpdated(uint256 bps);
-
-    /**
-     * @notice A struct defining royalty info for the contract.
-     */
-    struct RoyaltyInfo {
-        address royaltyAddress;
-        uint96 royaltyBps;
-    }
 
     /**
      * @notice Throw if the max supply exceeds uint64, a limit

@@ -149,15 +149,9 @@ contract EZDrop721 is ISeaDrop, ReentrancyGuard, Ownable {
         MultiConfigure calldata config
     ) external override {
 
-        bytes32 cloneSalt = keccak256(
-            abi.encodePacked(blockhash(block.number))
+        address instance = Clones.clone(
+            seaDropCloneableUpgradeableImplementation
         );
-
-        address instance = Clones.cloneDeterministic(
-            seaDropCloneableUpgradeableImplementation,
-            cloneSalt
-        );
-
 
         address[] memory allowedSeaDrop = new address[](1);
         allowedSeaDrop[0] = address(this);

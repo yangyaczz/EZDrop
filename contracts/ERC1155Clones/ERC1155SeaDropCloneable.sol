@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {ERC1155ContractMetadata, ISeaDrop1155TokenContractMetadata} from "./ERC1155ContractMetadata.sol";
+import {ERC1155ContractMetadataCloneable, ISeaDrop1155TokenContractMetadata} from "./ERC1155ContractMetadataCloneable.sol";
 
-import {INonFungibleSeaDrop1155Token} from "./interfaces/INonFungibleSeaDrop1155Token.sol";
+import {INonFungibleSeaDrop1155Token} from "../interfaces/INonFungibleSeaDrop1155Token.sol";
 
-import {ISeaDrop1155} from "./interfaces/ISeaDrop1155.sol";
+import {ISeaDrop1155} from "../interfaces/ISeaDrop1155.sol";
 
-import {PublicDrop, PrivateDrop, WhiteList, MultiConfigure, MintStats} from "./lib/SeaDrop1155Structs.sol";
+import {PublicDrop, PrivateDrop, WhiteList, MultiConfigure, MintStats} from "../lib/SeaDrop1155Structs.sol";
 
-import {ERC1155SeaDropStructsErrorsAndEvents} from "./lib/ERC1155SeaDropStructsErrorsAndEvents.sol";
+import {ERC1155SeaDropStructsErrorsAndEvents} from "../lib/ERC1155SeaDropStructsErrorsAndEvents.sol";
 
-import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
+import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import {IERC165} from "openzeppelin-contracts/utils/introspection/IERC165.sol";
 
-import {DefaultOperatorFilterer} from "operator-filter-registry/DefaultOperatorFilterer.sol";
+import {DefaultOperatorFiltererUpgradeable} from "operator-filter-registry/upgradeable/DefaultOperatorFiltererUpgradeable.sol";
 
 /**
  * @title  ERC1155SeaDrop
@@ -23,12 +23,12 @@ import {DefaultOperatorFilterer} from "operator-filter-registry/DefaultOperatorF
  * @notice ERC1155SeaDrop is a token contract that contains methods
  *         to properly interact with SeaDrop.
  */
-contract ERC1155SeaDrop is
-    ERC1155ContractMetadata,
+contract ERC1155SeaDropCloneable is
+    ERC1155ContractMetadataCloneable,
     INonFungibleSeaDrop1155Token,
     ERC1155SeaDropStructsErrorsAndEvents,
-    ReentrancyGuard,
-    DefaultOperatorFilterer
+    ReentrancyGuardUpgradeable,
+    DefaultOperatorFiltererUpgradeable
 {
     /// @notice Track the allowed SeaDrop addresses.
     mapping(address => bool) internal _allowedSeaDrop;
@@ -52,28 +52,17 @@ contract ERC1155SeaDrop is
         }
     }
 
-    /**
-     * @notice Deploy the token contract with its uri,
-     *         and allowed SeaDrop addresses.
-     */
-    constructor(string memory _uri, address[] memory allowedSeaDrop)
-        ERC1155ContractMetadata(_uri)
-    {
-        // Put the length on the stack for more efficient access.
-        uint256 allowedSeaDropLength = allowedSeaDrop.length;
 
-        // Set the mapping for allowed SeaDrop contracts.
-        for (uint256 i = 0; i < allowedSeaDropLength; ) {
-            _allowedSeaDrop[allowedSeaDrop[i]] = true;
-            unchecked {
-                ++i;
-            }
-        }
-
-        // Set the enumeration.
-        _enumeratedAllowedSeaDrop = allowedSeaDrop;
-
-        // Emit an event noting the contract deployment.
+    function initialize( 
+        string memory _uri,
+        address[] calldata allowedSeaDrop,
+        address initialOwner
+    ) public initializer {
+        __ERC1155_init(_uri);
+        __ReentrancyGuard_init();
+        __DefaultOperatorFilterer_init();
+        _updateAllowedSeaDrop(allowedSeaDrop);
+        _transferOwnership(initialOwner);
         emit SeaDropTokenDeployed();
     }
 
@@ -287,7 +276,7 @@ contract ERC1155SeaDrop is
         public
         view
         virtual
-        override(ERC1155ContractMetadata)
+        override(ERC1155ContractMetadataCloneable)
         returns (bool)
     {
         return

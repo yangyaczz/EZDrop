@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {ISeaDrop1155TokenContractMetadata} from "./interfaces/ISeaDrop1155TokenContractMetadata.sol"; 
+import {ISeaDrop1155TokenContractMetadata} from "../interfaces/ISeaDrop1155TokenContractMetadata.sol";
 
-import {ERC1155} from "openzeppelin-contracts/token/ERC1155/ERC1155.sol";
+import {ERC1155Upgradeable} from "openzeppelin-contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 
 import {IERC165} from "openzeppelin-contracts/utils/introspection/IERC165.sol";
 
-import {Ownable} from "openzeppelin-contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
+
+
 
 /**
  * @title  ERC1155ContractMetadata
@@ -15,9 +17,9 @@ import {Ownable} from "openzeppelin-contracts/access/Ownable.sol";
  * @notice ERC1155ContractMetadata is a token contract that extends ERC1155
  *         with additional metadata and ownership capabilities.
  */
-contract ERC1155ContractMetadata is
-    ERC1155,
-    Ownable,
+contract ERC1155ContractMetadataCloneable is
+    ERC1155Upgradeable,
+    OwnableUpgradeable,
     ISeaDrop1155TokenContractMetadata
 {
     /// @notice Track the max supply.
@@ -36,11 +38,6 @@ contract ERC1155ContractMetadata is
             revert OnlyOwner();
         }
     }
-
-    /**
-     * @notice Deploy the token contract with its name and symbol.
-     */
-    constructor(string memory _uri) ERC1155(_uri) {}
 
     /**
      * @notice Sets the URI for the token metadata and emits an event.
@@ -66,7 +63,7 @@ contract ERC1155ContractMetadata is
         public
         view
         virtual
-        override(ERC1155)
+        override(ERC1155Upgradeable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
@@ -113,3 +110,4 @@ contract ERC1155ContractMetadata is
         }
     }
 }
+

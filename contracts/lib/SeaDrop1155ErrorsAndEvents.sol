@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { PublicDrop, PrivateDrop, WhiteList, MultiConfigure } from "./SeaDrop1155Structs.sol";
+import {PublicDrop, PrivateDrop, WhiteList, MultiConfigure} from "./SeaDrop1155Structs.sol";
 
 interface SeaDrop1155ErrorsAndEvents {
     /**
@@ -13,13 +13,28 @@ interface SeaDrop1155ErrorsAndEvents {
         uint256 endTimestamp
     );
 
+    error OnlyEOA();
+
+    /**
+     * @dev Revert with an error if the received payment is incorrect.
+     */
+    error IncorrectPaymentERC20(
+        uint256 allowance,
+        uint256 balance,
+        uint256 want
+    );
+
+    event WithdrawnERC20(address recipient,uint balance);
+
+    /**
+     * @dev Revert with an error if the ERC20 is incorrect.
+     */
+    error IncorrectERC20(address erc20Address);
+
     /**
      * @dev Revert with an error if the drop stage is not active.
      */
-    error NotActiveEndTime(
-        uint256 currentTimestamp,
-        uint256 endTimestamp
-    );
+    error NotActiveEndTime(uint256 currentTimestamp, uint256 endTimestamp);
 
     /**
      * @dev Revert with an error if the invalid start mode is provided.
@@ -64,7 +79,7 @@ interface SeaDrop1155ErrorsAndEvents {
      *      always `type(uint).max`.
      */
     error MintQuantityExceedsMaxTokenSupplyForStage(
-        uint256 total, 
+        uint256 total,
         uint256 maxTokenSupplyForStage
     );
 
@@ -102,11 +117,16 @@ interface SeaDrop1155ErrorsAndEvents {
     /**
      * @dev Revert with an error if the minter not white list.
      */
-    error MinterNotWhitelist(address seadrop, address token, address sender, uint8 stage);
+    error MinterNotWhitelist(
+        address seadrop,
+        address token,
+        address sender,
+        uint8 stage
+    );
 
     /**
      * @dev An event with details of a SeaDrop mint, for analytical purposes.
-     * 
+     *
      * @param nftContract    The nft contract.
      * @param nftRecipient   The nft recipient.
      * @param minter         The mint recipient.
@@ -126,10 +146,7 @@ interface SeaDrop1155ErrorsAndEvents {
     /**
      * @dev An event with updated public drop data for an nft contract.
      */
-    event PublicDropUpdated(
-        address indexed nftContract,
-        PublicDrop publicDrop
-    );
+    event PublicDropUpdated(address indexed nftContract, PublicDrop publicDrop);
 
     /**
      * @dev An event with updated private drop data for an nft contract.
@@ -142,12 +159,8 @@ interface SeaDrop1155ErrorsAndEvents {
     /**
      * @dev An event with updated white list data for an nft contract.
      */
-    event WhiteListUpdated(
-        address indexed nftContract,
-        WhiteList whiteList
-    );
+    event WhiteListUpdated(address indexed nftContract, WhiteList whiteList);
 
-    
     /**
      * @dev An event with updated drop URI for an nft contract.
      */
@@ -165,25 +178,17 @@ interface SeaDrop1155ErrorsAndEvents {
     /**
      * @dev Deploy ERC1155SeaDrop event.
      */
-    event ERC1155SeaDropCreated(
-        address indexed nftContract
-    );
+    event ERC1155SeaDropCreated(address indexed nftContract);
 
     /**
      * @dev Withdrawn ETH event.
      */
-    event WithdrawnETH(
-        address indexed recipient,
-        uint256 indexed balance
-    );
+    event WithdrawnETH(address indexed recipient, uint256 indexed balance);
 
     /**
      * @dev Update signer address event.
      */
-    event SignerUpdated(
-        address indexed nftContract,
-        address indexed signer
-    );
+    event SignerUpdated(address indexed nftContract, address indexed signer);
 
     /**
      * @dev Update mint event.
@@ -209,4 +214,11 @@ interface SeaDrop1155ErrorsAndEvents {
         address indexed feeRecipient,
         uint256 feeValue
     );
+
+        /**
+     * @notice Withdraw ERC20 for the nft contract.
+     *
+     * @param recipient Address to receive erc20.
+     */
+    function withdrawERC20(address tokenAddress, address recipient) external returns (uint256 balance);
 }

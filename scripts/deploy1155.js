@@ -4,26 +4,31 @@
 // You can also run a script with `npx hardhat run <script>`. If you do that, Hardhat
 // will compile your contracts, add the Hardhat Runtime Environment's members to the
 // global scope, and execute the script.
+const { ethers } = require("hardhat");
 const hre = require("hardhat");
 
 async function main() {
+  [owner] = await ethers.getSigners();
+  
   // deploy impl
-  // const implc = await ethers.getContractFactory("ERC721SeaDropCloneable");
-  // const impl = await implc.deploy();
-  // await impl.deployed();
+  const implc = await ethers.getContractFactory("ERC1155SeaDropCloneable")
+  impl = await implc.deploy()
+  await impl.deployed()
 
-  // console.log("impl address is:", impl.address);
+  console.log("impl address is:", impl.address);
 
-  // const sdc = await ethers.getContractFactory("EZDrop721");
-  // const seadrop = await sdc.deploy(impl.address);
-  // await seadrop.deployed();
+  const sdc = await ethers.getContractFactory("EZDrop1155");
+  seadrop = await sdc.deploy(impl.address);
+  await seadrop.deployed();
 
-  // console.log("deploy address is:", seadrop.address);
+  console.log("deploy address is:", seadrop.address);
 
-  // 
+  
   const ts20c = await ethers.getContractFactory("TestERC20");
   const ts20 = await ts20c.deploy();
   await ts20.deployed();
+
+  console.log("test20 address is:", ts20.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

@@ -19,7 +19,7 @@ import {IERC165} from "openzeppelin-contracts/utils/introspection/IERC165.sol";
  * @notice ERC721ContractMetadata is a token contract that extends ERC721A
  *         with additional metadata and ownership capabilities.
  */
-contract ERC721ContractMetadataCloneable is
+contract ERC721ContractMetadataCloneable is 
     ERC721ACloneable,
     Ownable,
     ISeaDropTokenContractMetadata

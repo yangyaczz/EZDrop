@@ -14,6 +14,8 @@ setGlobalDispatcher(proxyAgent);
 const mainnetAccount = process.env.mainnetAccount
 
 const ethscanKey = process.env.ethscanKey
+const maticscanKey = process.env.maticscanKey
+
 
 
 
@@ -82,6 +84,19 @@ module.exports = {
       ],
       allowUnlimitedContractSize: true,
     },
+    mumbai: {
+      url: 'https://rpc.ankr.com/polygon_mumbai',
+      accounts: [
+        mainnetAccount
+      ],
+    },
+    matic: {
+      url: 'https://1rpc.io/matic',
+      accounts: [
+        mainnetAccount
+      ]
+    }
+
   },
 
   // paths: {
@@ -89,5 +104,5 @@ module.exports = {
   //   cache: "./cache_hardhat",
   // },
 
-  etherscan: { apiKey: ethscanKey },
+  etherscan: { apiKey: maticscanKey },
 };

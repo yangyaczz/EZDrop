@@ -5,13 +5,13 @@ import {ISeaDrop1155} from "./interfaces/ISeaDrop1155.sol";
 
 import {INonFungibleSeaDrop1155Token} from "./interfaces/INonFungibleSeaDrop1155Token.sol";
 
-import {ISeaDrop1155TokenContractMetadata} from "./interfaces/ISeaDrop1155TokenContractMetadata.sol";
-
 import {PublicDrop, PrivateDrop, WhiteList, MultiConfigure, MintStats, AirDropParam} from "./lib/SeaDrop1155Structs.sol";
 
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
+
+import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {IERC165} from "openzeppelin-contracts/utils/introspection/IERC165.sol";
 
@@ -51,8 +51,11 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
     /// @notice Track the public mint prices.
     mapping(address => uint256) private _publicMintPrices;
 
+    /// @notice Track the pay token address.
+    mapping(address => address) private _payTokenAddress;
+
     /// @notice Track the contract name.
-    mapping(address => string) private _contractNames;
+    mapping(address => string) private _contractNames; // ?????
 
     /// @notice Track the total minted by stage.
     mapping(address => mapping(uint8 => uint256)) public totalMintedByStage;
@@ -70,8 +73,6 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
     mapping(address => mapping(uint8 => address)) private _feeRecipients;
 
     mapping(address => mapping(uint8 => uint256)) private _feeValues;
-
-    ERC1155SeaDrop[] private _erc1155SeaDrops;
 
     /// @notice Constant for an unlimited `maxTokenSupplyForStage`.
     ///         Used in `mintPublic` where no `maxTokenSupplyForStage`
@@ -112,6 +113,16 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
     }
 
     /**
+     * @notice Only call by eoa
+     */
+    modifier onlyEOA() virtual {
+        if (msg.sender != tx.origin) {
+            revert OnlyEOA();
+        }
+        _;
+    }
+
+    /**
      * @notice Constructor for the contract deployment.
      */
     constructor() {}
@@ -129,33 +140,25 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         string memory name,
         uint256 privateMintPrice,
         uint256 publicMintPrice,
+        address payTokenAddress,
         MultiConfigure calldata config
     ) external override {
-        address[] memory allowedSeaDrop = new address[](1);
-        allowedSeaDrop[0] = address(this);
-        // Deploy the ERC1155SeaDrop contract.
-        ERC1155SeaDrop erc1155SeaDrop = new ERC1155SeaDrop(
-            _uri,
-            allowedSeaDrop
-        );
-
-        _erc1155SeaDrops.push(erc1155SeaDrop);
-
-        // Configure the ERC1155SeaDrop contract.
-        erc1155SeaDrop.multiConfigure(config);
-
-        // Transfer ownership to the deployer.
-        erc1155SeaDrop.transferOwnership(msg.sender);
-
-        address erc1155SeaDropAddress = address(erc1155SeaDrop);
-
-        _privateMintPrices[erc1155SeaDropAddress] = privateMintPrice;
-
-        _publicMintPrices[erc1155SeaDropAddress] = publicMintPrice;
-
-        _contractNames[erc1155SeaDropAddress] = name;
-
-        emit ERC1155SeaDropCreated(erc1155SeaDropAddress);
+        // address[] memory allowedSeaDrop = new address[](1);
+        // allowedSeaDrop[0] = address(this);
+        // // Deploy the ERC1155SeaDrop contract.
+        // ERC1155SeaDrop erc1155SeaDrop = new ERC1155SeaDrop(
+        //     _uri,
+        //     allowedSeaDrop
+        // );
+        // // Configure the ERC1155SeaDrop contract.
+        // erc1155SeaDrop.multiConfigure(config);
+        // // Transfer ownership to the deployer.
+        // erc1155SeaDrop.transferOwnership(msg.sender);
+        // address erc1155SeaDropAddress = address(erc1155SeaDrop);
+        // _privateMintPrices[erc1155SeaDropAddress] = privateMintPrice;
+        // _publicMintPrices[erc1155SeaDropAddress] = publicMintPrice;
+        // _contractNames[erc1155SeaDropAddress] = name;
+        // emit ERC1155SeaDropCreated(erc1155SeaDropAddress);
     }
 
     /**
@@ -171,8 +174,7 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         address nftRecipient,
         uint256 tokenId,
         uint256 quantity
-    ) external payable override {
-        require(msg.sender == tx.origin, "Not EOA");
+    ) external payable override onlyEOA {
         // Get the public drop data.
         PublicDrop memory publicDrop = _publicDrops[nftContract];
 
@@ -190,7 +192,7 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         uint256 mintPrice = _publicMintPrices[nftContract];
 
         // Validate payment is correct for number minted.
-        _checkCorrectPayment(
+        (address payTokenAddress, uint correctPayment) = _checkCorrectPayment(
             nftContract,
             _PUBLIC_DROP_STAGE_INDEX,
             quantity,
@@ -214,6 +216,8 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
             tokenId,
             quantity,
             mintPrice,
+            payTokenAddress,
+            correctPayment,
             _PUBLIC_DROP_STAGE_INDEX
         );
     }
@@ -234,8 +238,7 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         uint256 tokenId,
         uint256 quantity,
         bytes memory signature
-    ) external payable override {
-        require(msg.sender == tx.origin, "Not EOA");
+    ) external payable override onlyEOA {
         //get current stage index whiteListDrop
         PrivateDrop memory privateDrop = _privateDrops[nftContract];
 
@@ -262,9 +265,9 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         uint256 mintPrice = _privateMintPrices[nftContract];
 
         // Validate payment is correct for number minted.
-        _checkCorrectPayment(
+        (address payTokenAddress, uint correctPayment) = _checkCorrectPayment(
             nftContract,
-            _PRIVATE_DROP_STAGE_INDEX,
+            _PUBLIC_DROP_STAGE_INDEX,
             quantity,
             mintPrice
         );
@@ -286,6 +289,8 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
             tokenId,
             quantity,
             mintPrice,
+            payTokenAddress,
+            correctPayment,
             _PRIVATE_DROP_STAGE_INDEX
         );
     }
@@ -306,8 +311,7 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         uint256 tokenId,
         uint256 quantity,
         bytes memory signature
-    ) external payable override {
-        require(msg.sender == tx.origin, "Not EOA");
+    ) external payable override onlyEOA {
         //get current stage whiteList
         WhiteList memory whiteList = _whiteLists[nftContract];
 
@@ -329,7 +333,12 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         );
 
         // Validate payment is correct for number minted.
-        _checkCorrectPayment(nftContract, _WHITE_LIST_STAGE_INDEX, quantity, 0);
+        (address payTokenAddress, uint correctPayment) = _checkCorrectPayment(
+            nftContract,
+            _WHITE_LIST_STAGE_INDEX,
+            quantity,
+            0
+        );
 
         // Check that the minter is allowed to mint the desired quantity.
         _checkMintQuantity(
@@ -348,6 +357,8 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
             tokenId,
             quantity,
             0,
+            payTokenAddress,
+            correctPayment,
             _WHITE_LIST_STAGE_INDEX
         );
     }
@@ -361,27 +372,23 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
     function airdrop(address nftContract, AirDropParam[] calldata airDropParams)
         external
         override
+        onlyEOA
     {
-        require(msg.sender == tx.origin, "Not EOA");
-
         require(
             ERC1155SeaDrop(nftContract).owner() == msg.sender,
             "Not nft owner"
         );
 
+        MintStats memory mintStats = INonFungibleSeaDrop1155Token(nftContract)
+            .getMintStats();
+        uint totalMinted = mintStats.totalMinted;
+
         for (uint256 i; i < airDropParams.length; ) {
             AirDropParam memory airDropParam = airDropParams[i];
-            // Get the mint stats.
-            MintStats memory mintStats = INonFungibleSeaDrop1155Token(
-                nftContract
-            ).getMintStats();
 
-            if (
-                airDropParam.quantity + mintStats.totalMinted >
-                mintStats.maxSupply
-            ) {
+            if (airDropParam.quantity + totalMinted > mintStats.maxSupply) {
                 revert MintQuantityExceedsMaxSupply(
-                    airDropParam.quantity + mintStats.totalMinted,
+                    airDropParam.quantity + totalMinted,
                     mintStats.maxSupply
                 );
             }
@@ -392,6 +399,9 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
                 airDropParam.tokenId,
                 airDropParam.quantity
             );
+
+            totalMinted += airDropParam.quantity;
+
             unchecked {
                 ++i;
             }
@@ -500,12 +510,40 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         uint8 stageIndex,
         uint256 quantity,
         uint256 mintPrice
-    ) internal view {
+    ) internal view returns (address payTokenAddress, uint correctPayment) {
         // Get the fee value.
         uint256 feeValue = _feeValues[nftContract][stageIndex];
-        // Revert if the tx's value doesn't match the total cost.
-        if (msg.value != quantity * mintPrice + feeValue) {
-            revert IncorrectPayment(msg.value, quantity * mintPrice + feeValue);
+
+        payTokenAddress = _payTokenAddress[nftContract];
+        correctPayment;
+        if (payTokenAddress == address(0)) {
+            // Revert if the tx's value doesn't match the total cost.
+            correctPayment = quantity * mintPrice + feeValue;
+            if (msg.value != correctPayment) {
+                revert IncorrectPayment(msg.value, correctPayment);
+            }
+        } else {
+            uint minterAllowance;
+            try
+                ERC20(payTokenAddress).allowance(msg.sender, address(this))
+            returns (uint returnAllowance) {
+                minterAllowance = returnAllowance;
+            } catch {
+                revert IncorrectERC20(payTokenAddress);
+            }
+
+            uint minterBalance = ERC20(payTokenAddress).balanceOf(msg.sender);
+            correctPayment = quantity * mintPrice + feeValue;
+            if (
+                correctPayment > minterAllowance ||
+                correctPayment > minterBalance
+            ) {
+                revert IncorrectPaymentERC20(
+                    minterAllowance,
+                    minterBalance,
+                    correctPayment  
+                );
+            }
         }
     }
 
@@ -514,7 +552,11 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
      *
      * @param nftContract  The nft contract.
      */
-    function _splitPayout(address nftContract, uint8 stageIndex) internal {
+    function _splitPayoutETH(
+        address nftContract,
+        uint8 stageIndex,
+        uint correctPayment
+    ) internal {
         // Get the creator payout address.
         address creatorPayoutAddress = _creatorPayoutAddresses[nftContract];
 
@@ -525,15 +567,7 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
 
         // Get the fee amount.
         uint256 feeValue = _feeValues[nftContract][stageIndex];
-
         address feeRecipient = _feeRecipients[nftContract][stageIndex];
-
-        // Get the creator payout amount. Fee amount is <= msg.value per above.
-        uint256 payoutAmount;
-        unchecked {
-            payoutAmount = msg.value - feeValue;
-        }
-
         // Transfer the fee amount to the fee recipient.
         if (feeValue > 0) {
             if (feeRecipient == address(0)) {
@@ -542,9 +576,66 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
                 SafeTransferLib.safeTransferETH(feeRecipient, feeValue);
             }
         }
+
+        // Get the creator payout amount. Fee amount is <= msg.value per above.
+        uint256 payoutAmount = correctPayment - feeValue;
         if (payoutAmount > 0) {
             // Transfer the creator payout amount to the creator.
             SafeTransferLib.safeTransferETH(creatorPayoutAddress, payoutAmount);
+        }
+    }
+
+    /**
+     * @notice Split the payment payout for the creator and fee recipient with ERC20.
+     *
+     * @param nftContract  The nft contract.
+     */
+    function _splitPayoutERC20(
+        address nftContract,
+        uint8 stageIndex,
+        address payTokenAddress,
+        uint correctPayment
+    ) internal {
+        // Get the creator payout address.
+        address creatorPayoutAddress = _creatorPayoutAddresses[nftContract];
+
+        // Ensure the creator payout address is not the zero address.
+        if (creatorPayoutAddress == address(0)) {
+            revert CreatorPayoutAddressCannotBeZeroAddress();
+        }
+
+        // Get the fee amount.
+        uint256 feeValue = _feeValues[nftContract][stageIndex];
+        address feeRecipient = _feeRecipients[nftContract][stageIndex];
+        // Transfer the fee amount to the fee recipient.
+        if (feeValue > 0) {
+            if (feeRecipient == address(0)) {
+                SafeTransferLib.safeTransferFrom(
+                    ERC20(payTokenAddress),
+                    msg.sender,
+                    owner(),
+                    feeValue
+                );
+            } else {
+                SafeTransferLib.safeTransferFrom(
+                    ERC20(payTokenAddress),
+                    msg.sender,
+                    feeRecipient,
+                    feeValue
+                );
+            }
+        }
+
+        // Get the creator payout amount. Fee amount is <= msg.value per above.
+        uint256 payoutAmount = correctPayment - feeValue;
+        if (payoutAmount > 0) {
+            // Transfer the creator payout amount to the creator.
+            SafeTransferLib.safeTransferFrom(
+                ERC20(payTokenAddress),
+                msg.sender,
+                creatorPayoutAddress,
+                payoutAmount
+            );
         }
     }
 
@@ -565,6 +656,8 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         uint256 tokenId,
         uint256 quantity,
         uint256 mintPrice,
+        address payTokenAddress,
+        uint correctPayment,
         uint8 stageIndex
     ) internal nonReentrant {
         // Mint the token(s).
@@ -578,7 +671,16 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         walletMintedByStage[nftContract][stageIndex][nftRecipient] += quantity;
 
         // Split the payment between the creator and fee recipient.
-        _splitPayout(nftContract, stageIndex);
+        if (payTokenAddress == address(0)) {
+            _splitPayoutETH(nftContract, stageIndex, correctPayment);
+        } else {
+            _splitPayoutERC20(
+                nftContract,
+                stageIndex,
+                payTokenAddress,
+                correctPayment
+            );
+        }
 
         // Emit an event for the mint.
         emit SeaDropMint(
@@ -1007,6 +1109,29 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
     }
 
     /**
+     * @notice withdraw ERC20 from the recipient
+     * @param tokenAddress ERC20 token address.
+     * @param recipient ERC20 recipient address.
+     */
+    function withdrawERC20(address tokenAddress, address recipient)
+        external
+        override
+        onlyOwner
+        returns (uint256 balance)
+    {
+        balance = ERC20(tokenAddress).balanceOf(address(this));
+
+        if (balance > 0)
+            SafeTransferLib.safeTransfer(
+                ERC20(tokenAddress),
+                recipient,
+                balance
+            );
+
+        emit WithdrawnERC20(recipient, balance);
+    }
+
+    /**
      * @notice Returns the mint stats for the nft contract.
      *
      * @param nftContract The nft contract.
@@ -1079,21 +1204,8 @@ contract SeaDrop1155 is ISeaDrop1155, ReentrancyGuard, Ownable {
         uint8 stage,
         bool isActive
     ) internal {
-        require(
-            ERC1155SeaDrop(nftContract).owner() == msg.sender,
-            "Not nft owner"
-        );
-
         _isStageActive[nftContract][stage] = isActive;
 
         emit StageActiveUpdated(nftContract, stage, isActive);
-    }
-
-    function allERC1155SeaDrops()
-        external
-        view
-        returns (ERC1155SeaDrop[] memory)
-    {
-        return _erc1155SeaDrops;
     }
 }

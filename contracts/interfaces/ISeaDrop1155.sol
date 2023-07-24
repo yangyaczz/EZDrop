@@ -28,6 +28,7 @@ interface ISeaDrop1155 is SeaDrop1155ErrorsAndEvents {
         string memory name,
         uint256 privateMintPrice,
         uint256 publicMintPrice,
+        address payTokenAddress,
         MultiConfigure calldata config
     ) external;
 
